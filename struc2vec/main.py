@@ -3,12 +3,14 @@
 
 import argparse, logging
 import numpy as np
-import struc2vec
+from .struc2vec import Graph
 from gensim.models import Word2Vec
 from gensim.models.word2vec import LineSentence
 from time import time
+import networkx as nx
 
-import graph
+from . graph import from_numpy
+
 
 logging.basicConfig(filename='struc2vec.log',filemode='w',level=logging.DEBUG,format='%(asctime)s %(message)s')
 
@@ -18,10 +20,10 @@ def parse_args():
     '''
     parser = argparse.ArgumentParser(description="Run struc2vec.")
 
-    parser.add_argument('--input', nargs='?', default='graph/karate.edgelist',
+    parser.add_argument('--input', nargs='?', default='../graph/karate-mirrored.edgelist',
                         help='Input graph path')
 
-    parser.add_argument('--output', nargs='?', default='emb/karate.emb',
+    parser.add_argument('--output', nargs='?', default='../emb/karate.emb',
                         help='Embeddings path')
 
     parser.add_argument('--dimensions', type=int, default=128,
@@ -63,67 +65,88 @@ def parse_args():
                       help='optimization 3')    
     return parser.parse_args()
 
-def read_graph():
+
+def read_graph(A, directed):
     '''
     Reads the input network.
     '''
     logging.info(" - Loading graph...")
-    G = graph.load_edgelist(args.input,undirected=True)
+    G = from_numpy(A, undirected= not directed)
     logging.info(" - Graph loaded.")
     return G
 
-def learn_embeddings():
+
+def learn_embeddings(output, d, window_size, workers, iter):
     '''
     Learn embeddings by optimizing the Skipgram objective using SGD.
     '''
     logging.info("Initializing creation of the representations...")
     walks = LineSentence('random_walks.txt')
-    model = Word2Vec(walks, size=args.dimensions, window=args.window_size, min_count=0, hs=1, sg=1, workers=args.workers, iter=args.iter)
-    model.wv.save_word2vec_format(args.output)
+    model = Word2Vec(walks, size=d, window=window_size, min_count=0, hs=1, sg=1, workers=workers, iter=iter)
+    model.wv.save_word2vec_format(output)
+    res = {}
+    with open(output) as inp_fifle:
+        for i, line in enumerate(inp_fifle):
+            if i < 1:
+                continue
+            fields = [float(v) for v in line.split(' ')]
+            node_id = int(fields[0])
+            emb = fields[1:]
+            res[node_id] = emb
+    embds = np.array([res[k] for k in sorted(res)])
     logging.info("Representations created.")
     
-    return
+    return embds
 
-def exec_struc2vec(args):
+
+def exec_struc2vec(A,
+                   directed=True,
+                   workers=8,
+                   num_walks=10,
+                   walk_length=80,
+                   output='embeddings.txt',
+                   opt1=True,
+                   opt2=True,
+                   opt3=True,
+                   ul=None):
     '''
     Pipeline for representational learning for all nodes in a graph.
     '''
-    if(args.OPT3):
-        until_layer = args.until_layer
+    if(opt3):
+        until_layer = ul
     else:
         until_layer = None
 
-    G = read_graph()
-    G = struc2vec.Graph(G, args.directed, args.workers, untilLayer = until_layer)
+    G = read_graph(A, directed)
+    G = Graph(G, directed, workers, untilLayer=until_layer)
 
-    if(args.OPT1):
+    if(opt1):
         G.preprocess_neighbors_with_bfs_compact()
     else:
         G.preprocess_neighbors_with_bfs()
 
-    if(args.OPT2):
+    if(opt2):
         G.create_vectors()
-        G.calc_distances(compactDegree = args.OPT1)
+        G.calc_distances(compactDegree=opt1)
     else:
-        G.calc_distances_all_vertices(compactDegree = args.OPT1)
-
+        G.calc_distances_all_vertices(compactDegree=opt1)
 
     G.create_distances_network()
     G.preprocess_parameters_random_walk()
 
-    G.simulate_walks(args.num_walks, args.walk_length)
-
+    G.simulate_walks(num_walks, walk_length)
 
     return G
 
-def main(args):
 
-    G = exec_struc2vec(args)
+def prepare_embeddings(A, d=16, output='embds.txt',  window_size=10, workers=8, iters=10):
+    exec_struc2vec(A, workers=workers)
 
-    learn_embeddings()
+    embeddings = learn_embeddings(output, d, window_size, workers, iters)
+
+    return embeddings
 
 
-if __name__ == "__main__":
-    args = parse_args()
-    main(args)
-
+if __name__ == '__main__':
+    G = nx.read_edgelist('../graph/karate-mirrored.edgelist')
+    prepare_embeddings(nx.adjacency_matrix(G))

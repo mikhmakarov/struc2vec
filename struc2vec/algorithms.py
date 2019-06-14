@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
 from collections import defaultdict
 
-from utils import *
+from .utils import *
 
 
 def generate_parameters_random_walk(workers):

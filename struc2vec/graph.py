@@ -18,6 +18,7 @@ import random
 from random import shuffle
 from itertools import product,permutations
 import collections
+import scipy
 
 from concurrent.futures import ProcessPoolExecutor
 
@@ -130,7 +131,8 @@ class Graph(defaultdict):
 
   def printAdjList(self):
     for key,value in self.items():
-      print (key,":",value)
+        pass
+        # print (key,":",value)
 
 
 
@@ -242,10 +244,15 @@ def from_networkx(G_input, undirected=True):
 def from_numpy(x, undirected=True):
     G = Graph()
 
-    if issparse(x):
+    if scipy.sparse.issparse(x):
+        n = x.shape[0]
         cx = x.tocoo()
         for i,j,v in zip(cx.row, cx.col, cx.data):
             G[i].append(j)
+
+        for i in range(n):
+            if i not in G:
+                G[i] = []
     else:
       raise Exception("Dense matrices not yet supported.")
 

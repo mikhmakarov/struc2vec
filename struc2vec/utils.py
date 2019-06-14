@@ -21,6 +21,7 @@ def chunks(data, SIZE=10000):
         yield {k:data[k] for k in islice(it, SIZE)}
 
 def partition(lst, n):
+    lst = list(lst)
     division = len(lst) / float(n)
     return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in range(n) ]
 

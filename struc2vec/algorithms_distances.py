@@ -6,7 +6,7 @@ import math,logging
 from fastdtw import fastdtw
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from collections import defaultdict
-from utils import *
+from .utils import *
 import os
 
 limiteDist = 20
@@ -445,7 +445,6 @@ def exec_bfs(G,workers,calcUntilLayer):
 
         part = 1
         for c in chunks:
-            print(G, c, calcUntilLayer)
             job = executor.submit(getDegreeListsVertices,G,c,calcUntilLayer)
             futures[job] = part
             part += 1
@@ -459,8 +458,6 @@ def exec_bfs(G,workers,calcUntilLayer):
     saveVariableOnDisk(degreeList,'degreeList')
     t1 = time()
     logging.info('Execution time - BFS: {}m'.format((t1-t0)/60))
-
-    print("BFS DONE")
 
     return
 
